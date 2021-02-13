@@ -8,6 +8,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Animation/AnimSequence.h"
 #include "Components/PawnNoiseEmitterComponent.h"
+#include "Net/UnrealNetwork.h"
+#include "GameFramework/PawnMovementComponent.h"
 
 
 AFPSCharacter::AFPSCharacter()
@@ -18,17 +20,21 @@ AFPSCharacter::AFPSCharacter()
 	CameraComponent->SetRelativeLocation(FVector(0, 0, BaseEyeHeight)); // Position the camera
 	CameraComponent->bUsePawnControlRotation = true;
 
+	GetMovementComponent()->GetNavAgentPropertiesRef().bCanCrouch = true;
+
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
 	Mesh1PComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharacterMesh"));
-	Mesh1PComponent->SetupAttachment(CameraComponent);
+	Mesh1PComponent->SetupAttachment(RootComponent);
 	Mesh1PComponent->CastShadow = false;
 	Mesh1PComponent->SetRelativeRotation(FRotator(2.0f, -15.0f, 5.0f));
 	Mesh1PComponent->SetRelativeLocation(FVector(0, 0, -160.0f));
+	
 
 	// Create a gun mesh component
-	GunMeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FP_Gun"));
-	GunMeshComponent->CastShadow = false;
-	GunMeshComponent->SetupAttachment(Mesh1PComponent, "GripPoint");
+	//GunMeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FP_Gun"));
+	//GunMeshComponent->CastShadow = false;
+	////GunMeshComponent->SetupAttachment(Mesh1PComponent, "GripPoint");
+	//GunMeshComponent->SetupAttachment(Mesh1PComponent, "hand_r");
 
 	NoiseEmitterComp = CreateDefaultSubobject<UPawnNoiseEmitterComponent>(TEXT("NoiseEmitter"));
 }
@@ -47,33 +53,72 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 
 	PlayerInputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput);
 	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
+
+	PlayerInputComponent->BindAction("Crouch", IE_Pressed, this, &AFPSCharacter::BeginCrouch);
+	PlayerInputComponent->BindAction("Crouch", IE_Released, this, &AFPSCharacter::EndCrouch);
 }
 
+void AFPSCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (!IsLocallyControlled())
+	{
+		FRotator NewRot = CameraComponent->GetRelativeRotation();
+
+		NewRot.Pitch = RemoteViewPitch * 360.0f / 255.0f;
+
+		CameraComponent->SetRelativeRotation(NewRot);
+	}
+
+
+}
+
+FVector AFPSCharacter::GetPawnViewLocation() const
+{
+	if (CameraComponent)
+	{
+		//return CameraComponent->GetComponentLocation();
+		return Mesh1PComponent->GetSocketLocation("weapon_slot");
+	}
+
+	return Super::GetPawnViewLocation();
+}
+
+void AFPSCharacter::ServerFire_Implementation()
+{
+	//if (ProjectileClass)
+	//{
+	//	// Grabs location from the mesh that must have a socket called "Muzzle" in his skeleton
+	//	FVector MuzzleLocation = GunMeshComponent->GetSocketLocation("Muzzle");
+	//	// Use controller rotation which is our view direction in first person
+	//	FRotator MuzzleRotation = GetControlRotation();
+
+	//	//Set Spawn Collision Handling Override
+	//	FActorSpawnParameters ActorSpawnParams;
+	//	ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
+	//	ActorSpawnParams.Instigator = this;
+
+	//	// spawn the projectile at the muzzle
+	//	GetWorld()->SpawnActor<AFPSProjectile>(ProjectileClass, MuzzleLocation, MuzzleRotation, ActorSpawnParams);
+	//}
+}
+bool AFPSCharacter::ServerFire_Validate()
+{
+	return true;
+}
 
 void AFPSCharacter::Fire()
 {
+	ServerFire();
 	// try and fire a projectile
-	if (ProjectileClass)
-	{
-		// Grabs location from the mesh that must have a socket called "Muzzle" in his skeleton
-		FVector MuzzleLocation = GunMeshComponent->GetSocketLocation("Muzzle");
-		// Use controller rotation which is our view direction in first person
-		FRotator MuzzleRotation = GetControlRotation();
 
-		//Set Spawn Collision Handling Override
-		FActorSpawnParameters ActorSpawnParams;
-		ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
-		ActorSpawnParams.Instigator = this;
-
-		// spawn the projectile at the muzzle
-		GetWorld()->SpawnActor<AFPSProjectile>(ProjectileClass, MuzzleLocation, MuzzleRotation, ActorSpawnParams);
-	}
 
 	// try and play the sound if specified
-	if (FireSound)
-	{
-		UGameplayStatics::PlaySoundAtLocation(this, FireSound, GetActorLocation());
-	}
+	//if (FireSound)
+	//{
+	//	UGameplayStatics::PlaySoundAtLocation(this, FireSound, GetActorLocation());
+	//}
 
 	// try and play a firing animation if specified
 	if (FireAnimation)
@@ -105,4 +150,23 @@ void AFPSCharacter::MoveRight(float Value)
 		// add movement in that direction
 		AddMovementInput(GetActorRightVector(), Value);
 	}
+}
+
+void AFPSCharacter::BeginCrouch()
+{
+	Crouch();
+}
+
+void AFPSCharacter::EndCrouch()
+{
+	UnCrouch();
+}
+
+void AFPSCharacter::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AFPSCharacter, bIsCarryingObjective);
+
+	//DOREPLIFETIME(AFPSCharacter, bIsCarryingObjective, COND_OwnerOnly);
 }

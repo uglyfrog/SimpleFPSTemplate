@@ -52,7 +52,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Gameplay")
 	UAnimSequence* FireAnimation;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Gameplay")
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Gameplay")
 	bool bIsCarryingObjective;
 
 protected:
@@ -66,7 +66,18 @@ protected:
 	/** Handles strafing movement, left and right */
 	void MoveRight(float Val);
 
+	void BeginCrouch();
+
+	void EndCrouch();
+
 	virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerFire();
+
+	void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const;
+
+
 
 public:
 	/** Returns Mesh1P subobject **/
@@ -74,6 +85,10 @@ public:
 
 	/** Returns FirstPersonCameraComponent subobject **/
 	UCameraComponent* GetFirstPersonCameraComponent() const { return CameraComponent; }
+
+	virtual void Tick(float DeltaTime) override;
+
+	virtual FVector GetPawnViewLocation() const override;
 
 };
 

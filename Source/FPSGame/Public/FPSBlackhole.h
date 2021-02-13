@@ -17,6 +17,7 @@ public:
 	AFPSBlackhole();
 
 	//UPROPERTY(BlueprintReadOnly, Category = "Gameplay")
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Gameplay")
 	bool bBlackholeTrigger;
 
 protected:
@@ -37,6 +38,8 @@ protected:
 
 	UFUNCTION()
 	void OverlapInnerSphere(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const;
 
 public:	
 	// Called every frame

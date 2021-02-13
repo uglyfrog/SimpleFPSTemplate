@@ -2,6 +2,7 @@
 
 
 #include "FPSBlackhole.h"
+#include "Net/UnrealNetwork.h"
 
 // Sets default values
 AFPSBlackhole::AFPSBlackhole()
@@ -26,6 +27,9 @@ AFPSBlackhole::AFPSBlackhole()
 	OuterSphereComp = CreateDefaultSubobject<USphereComponent>(TEXT("OuterSphereComp"));
 	OuterSphereComp->SetSphereRadius(3000);
 	OuterSphereComp->SetupAttachment(MeshComp);
+
+	SetReplicates(true);
+	SetReplicateMovement(true);
 }
 
 	// Called when the game starts or when spawned
@@ -37,10 +41,22 @@ void AFPSBlackhole::BeginPlay()
 
 void AFPSBlackhole::OverlapInnerSphere(UPrimitiveComponent* OverlappedComponent,AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (OtherActor)
+	if (GetLocalRole() == ROLE_Authority)
 	{
-		OtherActor->Destroy();
+		if (OtherActor)
+		{
+			OtherActor->Destroy();
+		}
+
 	}
+
+}
+
+void AFPSBlackhole::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AFPSBlackhole, bBlackholeTrigger);
 }
 
 // Called every frame
@@ -48,25 +64,29 @@ void AFPSBlackhole::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bBlackholeTrigger)
+	if (GetLocalRole() == ROLE_Authority)
 	{
-		TArray<UPrimitiveComponent*> OverlappingComps;
-
-		OuterSphereComp->GetOverlappingComponents(OverlappingComps);
-
-		for (int32 i = 0; i < OverlappingComps.Num(); i++)
+		if (bBlackholeTrigger)
 		{
-			UPrimitiveComponent* PrimComp = OverlappingComps[i];
-			if (PrimComp && PrimComp->IsSimulatingPhysics())
-			{
-				const float SphereRadius = OuterSphereComp->GetScaledSphereRadius();
-				const float ForceStrength = -2000;
+			TArray<UPrimitiveComponent*> OverlappingComps;
 
-				PrimComp->AddRadialForce(GetActorLocation(), SphereRadius, ForceStrength, ERadialImpulseFalloff::RIF_Constant, true);
+			OuterSphereComp->GetOverlappingComponents(OverlappingComps);
+
+			for (int32 i = 0; i < OverlappingComps.Num(); i++)
+			{
+				UPrimitiveComponent* PrimComp = OverlappingComps[i];
+				if (PrimComp && PrimComp->IsSimulatingPhysics())
+				{
+					const float SphereRadius = OuterSphereComp->GetScaledSphereRadius();
+					const float ForceStrength = -2000;
+
+					PrimComp->AddRadialForce(GetActorLocation(), SphereRadius, ForceStrength, ERadialImpulseFalloff::RIF_Constant, true);
+
+				}
 
 			}
-
 		}
+
 	}
 
 

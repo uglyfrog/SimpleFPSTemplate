@@ -23,6 +23,7 @@ AFPSObjectiveActor::AFPSObjectiveActor()
 	SphereComp->SetCollisionResponseToAllChannels(ECR_Ignore);
 	SphereComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 
+	SetReplicates(true);
 }
 // Called when the game starts or when spawned
 void AFPSObjectiveActor::BeginPlay()
@@ -53,28 +54,33 @@ void AFPSObjectiveActor::NotifyActorBeginOverlap(AActor* OtherActor)
 
 	PlayEffect();
 
-	AFPSCharacter* MyCharacter = Cast<AFPSCharacter>(OtherActor);
-
-
-	TActorIterator<AFPSBlackhole> ActorItr = TActorIterator<AFPSBlackhole>(GetWorld());
-
-
-	if (MyCharacter)
+	if (GetLocalRole() == ROLE_Authority)
 	{
-		if (ActorItr)
-		{
-			ActorItr->bBlackholeTrigger = true;
-			//ActorItr->SetTrigger(true);
-			CppPrint("Trigger is on!");
-		}
-		else
-		{
-			CppPrint("Black hole is not casted correctly!");
-		}
+		AFPSCharacter* MyCharacter = Cast<AFPSCharacter>(OtherActor);
 
-		MyCharacter->bIsCarryingObjective = true;
-		Destroy();
+
+		TActorIterator<AFPSBlackhole> ActorItr = TActorIterator<AFPSBlackhole>(GetWorld());
+
+
+		if (MyCharacter)
+		{
+			if (ActorItr)
+			{
+				ActorItr->bBlackholeTrigger = true;
+				//ActorItr->SetTrigger(true);
+				CppPrint("Trigger is on!");
+			}
+			else
+			{
+				CppPrint("Black hole is not casted correctly!");
+			}
+
+			MyCharacter->bIsCarryingObjective = true;
+			Destroy();
+		}
 	}
+
+	
 }
 
 void AFPSObjectiveActor::CppPrint(FString text)
